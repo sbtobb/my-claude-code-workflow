@@ -37,7 +37,7 @@ This command generates specification task documents from PRD files. Implementati
 
 **Tips**:
 - `Bash(gemini -p "<prompt>")`: gemini can be used to generate code snippets, documentation, and other content based on the provided prompt and file paths.
-- Chat with other model perfer using English language
+- Chat with other model using English
 
 **Optimization (`-zen`):**
 If present, collect relevant file content and original PRD first, then:
@@ -48,18 +48,25 @@ If present, collect relevant file content and original PRD first, then:
 - **pro** (default): Use `gemini -p "<prompt>“` bash command for task specification review
 - **o3**: Use `mcp__zen` chat method with full file paths in `files` parameter
 
-**o3 Model Collaboration Process (-zen parameter)**:
+**Collaboration Process (-zen parameter)**:
 1. Collect project-related file content using Glob and Read tools
 2. Organize original PRD content
-3. Discuss with o3 model via mcp__zen chat:
-   - Task decomposition rationality
-   - Interface design best practices
-   - Technical architecture recommendations
-   - Implementation priority suggestions
-4. Optimize task specification structure based on o3 feedback
+3. **Prepare task structuring context**:
+  - Include complete "Task Group Structuring & Splitting Guidelines"
+  - Provide "Development Task Specification Template Structure"
+  - Share current project file structure and dependencies
+4. Discuss with o3 model or gemini chat:
+  - Task decomposition rationality **according to grouping guidelines**
+  - Validate each Task Group represents a self-contained functional module
+  - Ensure all changes to the same module are in the same Task Group
+  - Check sub-task count (2-4 per group) and naming conventions
+  - Interface design best practices
+  - Technical architecture recommendations
+  - Implementation priority suggestions
+5. Optimize task specification structure based on o3 feedback
 
-**gemini-pro Review Process (-review parameter)**:
-1. Send generated task specification to gemini-pro for review
+**Review Process (-review parameter)**:
+1. Send generated task specification to gemini or o3 model for review
 2. Collect review feedback:
    - Logic consistency check
    - Completeness verification
@@ -69,14 +76,88 @@ If present, collect relevant file content and original PRD first, then:
 
 ### Step 3: Specification Document Generation
 
-**Guiding Principle**: Group tasks logically by shared functional modules and file dependencies. Each `Task Group` must represent a cohesive unit of work that a single sub-agent can execute efficiently with a focused context. Consolidate all sub-tasks that modify the same set of core files into one group to ensure context integrity.
-
 **Execution Process**:
 1. Run `date "+%Y_%m_%d"` to get current date
 2. Create output file: `docs/specs/{YYYY_MM_dd}_{task_name}.md`
 3. Generate comprehensive specification-driven task document
-4. Group tasks by shared files and specification context
+4. Group tasks by `Task Group Structuring & Splitting Guidelines` (including operation batching rules)
 5. Wait for review approval before proceeding with implementation
+
+## Task Group Structuring & Splitting Guidelines
+
+### 1. Top-Level Grouping Principle
+1. **Group by Functional Domain & Code Boundary**
+   - A top-level Task Group **must** represent a self-contained functional module impacting a distinct set of core files.
+   - All changes to the same module **must** be in the same Task Group, even if they address different logical concerns.
+   - If two tasks touch the same set of files, merge them into one Task Group to keep context unified.
+   **✅ Example**:
+     - `Auth Module Route & Service Refactor`
+     - `Speaking Module Refactor`
+     - `Object Storage Module Refactor`
+   **❌ Avoid** phase-based or narrative groups like "Phase 1: Setup" or "Pilot Refactoring".
+
+2. **Purpose of Top-Level Groups**
+   - Each group should be independently completable and testable.
+   - Groups should be organized to allow **parallel execution** without excessive cross-group dependencies.
+
+### 2. Sub-Task Splitting Rules
+1. **Optimal Size**: Adapt task group overall goal to reasonably divide the number of sub-tasks.
+   - Each sub-task should be a complete, small unit of work that contributes to delivering the feature.
+   - Keep sub-tasks small enough for clear acceptance criteria, but large enough to avoid micro-tasks.
+   - **CRITICAL**: Merge similar operations on multiple files into ONE sub-task to avoid redundant processing.
+
+2. **Operation Batching**
+   - **Merge similar operations**: When multiple files need identical operations, combine them into a single sub-task.
+      **✅ Example**:
+        - `Refactor all admin route files to direct service instantiation`
+        - `Migrate all speaking module routes and services`
+      **❌ Avoid**:
+        - `Refactor admin/users.ts`
+        - `Refactor admin/system.ts` (separate sub-task for same operation)
+  - **File Operation Batching Rules**:
+      - If refactoring pattern is identical across files → single sub-task listing all files
+      - If each file needs unique logic → separate sub-tasks
+      - Instructions should specify: "Apply to files: `file1.ts`, `file2.ts`, `file3.ts`"
+
+3. **Deliverable-Focused Naming**
+   - Name sub-tasks after the **outcome**, not the action steps.
+   **✅ Example**:
+     - `Migrate all DB queries in auth.ts to AuthService`
+     - `Controllerize auth.ts routes`
+   **❌ Avoid**:
+     - `Analyze route file`
+     - `Refactoring preparation`
+
+4. **Logical Order** (if dependencies exist)
+   - Within a Task Group, sequence sub-tasks so earlier tasks unblock later ones.
+   - Example sequence: Logic Migration → Interface Update → Edge Case Fix.
+
+
+### 3. Acceptance Criteria Standard
+1. **Integrate Testing & QA Into Each Task**
+   - Do **not** create separate Task Groups for “Testing” or “Documentation”.
+   - Add testing, quality, and type safety requirements into each sub-task’s **Acceptance Criteria**.
+2. **Mandatory Items for Development Tasks**:
+   - [ ] All database access is moved to the service layer
+   - [ ] API request/response types comply with `shared` module definitions
+   - [ ] Unit tests for all new/changed service methods
+   - [ ] Integration tests for all updated routes
+   - [ ] TypeScript passes strict type checks
+   - [ ] Test coverage ≥ 80%
+   - [ ] Passes ESLint architectural rules with no violations
+
+### 4. Naming Conventions
+1. **Top-Level Group Names** = `{Module Name} + {Action}`
+   **✅** `Auth Module Route Controllerization`
+   **✅** `Speaking Practice Refactor`
+   **❌** `First Stage of Migration`
+2. **File & Method Naming**: Follow existing codebase conventions (kebab-case for files, PascalCase for service classes, camelCase for methods).
+
+### 5. Prohibited Practices
+- ❌ Splitting by project phase (Foundation, Pilot, Cleanup) at top-level.
+- ❌ Having “Testing Only” or “Documentation Only” groups.
+- ❌ Creating micro-tasks with vague outcomes (“Investigate X” without a deliverable).
+- ❌ Separating related file changes into different Task Groups.
 
 ## Development Task Specification Template Structure
 
@@ -159,11 +240,15 @@ No additional interface or data definitions are required; refer to the source co
 
 - **[ ] 1.1: {specific_sub_task_title}**
     - **Input**: {Clear input parameters, data, or preconditions for this specific sub-task}
-    - **Instructions**: {Detailed, step-by-step implementation guidance, specifying files, frameworks, and methods to use}
+    - **Instructions**:
+      1. {Step-by-step implementation guidance}
+      2. {For multiple files: "Apply to all files in: `dir/*.ts`" or "Process files: `file1.ts`, `file2.ts`, `file3.ts`"}
+      3. {Specify frameworks, patterns, and methods to use}
     - **Objective**: {Describe the desired state or deliverable after this sub-task is complete. What should be achieved or created?}
     - **Acceptance Criteria**:
         - [ ] {A specific, testable standard for verification}
         - [ ] {Another testable standard}
+        - [ ] {For multi-file tasks: "All specified files processed successfully"}
 
 - **[ ] 1.2: {another_feature_implementation}**
     - **Input**: {Clear input parameters, data, or preconditions for this specific sub-task}
@@ -208,20 +293,16 @@ Based on the provided arguments ($ARGUMENTS), execute the appropriate workflow:
 
 1. **Read PRD**: Always start by reading `docs/specs/prd.txt`
 2. **Parameter Processing**: Check for `-zen` and/or `-review` parameters
-3. **Model Collaboration**: If `-zen` is present, collaborate with o3 model before generation
+3. **Model Collaboration**: If `-zen` is present, collaborate with o3 model or gemini before generation
 4. **Generate Task Document**: Create comprehensive task specification
-5. **Review Process**: If `-review` is present, review with gemini-pro model after generation
+5. **Review Process**: If `-review` is present, review with gemini or o3 model after generation
 6. **Save Output**: Write final document to `docs/specs/{YYYY_MM_dd}_{task_name}.md`
 
-## Special Notes
-
-1. **Doc Output**: All generated task specification content uses Chinese, professional nouns are reserved in English
-2. **No Test Tasks**: No test-related tasks in development specifications, as dedicated agents handle review and testing
-3. **Model Collaboration**: Intelligently invoke o3 and gemini-pro models for collaborative optimization based on parameters
-4. **Version Control**: Task specifications are managed as part of code versioning
-5. **Human-AI Collaboration**: Clearly distinguish human input, AI generation, and collaborative review sections
-
-## Output File Naming Convention
-`docs/specs/{YYYY_MM_dd}_{feature_description}.md`
-
-Example: `docs/specs/2025_01_15_user_settings_management.md`
+## Language Guidelines
+- **Chinese**: Business logic description, requirements specification, implementation description
+- **English**:
+  - Technical terms (API, REST, GraphQL)
+  - File/folder paths
+  - Code snippets and variable names
+  - Framework/library names
+- **Mixed Example**: "将所有 `auth.ts` 中的数据库查询迁移到 `AuthService` 服务层"
