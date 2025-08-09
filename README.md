@@ -95,7 +95,7 @@ docs/specs/[日期]_[功能].md
 ## 常见问题
 
 ### Q: 如何修改输出语言?
-A: 编辑 prd-task-doc.md 第 218 行的 `Doc Output` 指令
+A: 编辑 prd-task-doc.md 第 300 行的 `Language Guidelines` 指令
 
 ### Q: 如何配置不同模型?
 A: 修改参数处理部分 Step 2 中的模型调用描述
